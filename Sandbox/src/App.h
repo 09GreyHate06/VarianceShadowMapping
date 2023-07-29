@@ -64,6 +64,8 @@ namespace VSM
 		std::unique_ptr<Model> m_model;
 
 		// controls
+		bool m_drawDirLightFrustum = false;
+
 		bool m_useVSM = false;
 		bool m_blurVSM = false;
 		DirectX::XMUINT2 m_vsmSize = { 512, 512 };

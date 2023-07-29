@@ -92,12 +92,7 @@ namespace VSM
         }
 
         {
-            m_dirLight.color = { 1.0f, 1.0f, 1.0f };
-            m_dirLight.ambientIntensity = 0.2f;
-            m_dirLight.intensity = 1.0f;
-            m_dirLight.shadowNearZ = 0.1f;
-            m_dirLight.shadowFarZ = 500.0f;
-            m_dirLight.rotation = { 50.0f, -30.0f, 0.0f };
+            m_dirLight.Set(m_context.get(), { 1.0f, 1.0f, 1.0f }, 1.0f, 0.2f, 40.0f, 40.0f, 0.1f, 500.0f, { 50.0f, -30.0f, 0.0f });
         }
     }
 
@@ -158,11 +153,36 @@ namespace VSM
     {
         m_imguiManager.Begin();
         
-        ImGui::Begin("Directional Light");
-        ImGui::PushItemWidth(210.0f);
-        ImGui::DragFloat3("Rotation", &m_dirLight.rotation.x, 0.1f);
-        ImGui::PopItemWidth();
-        ImGui::End();
+        if (ImGui::Begin("Directional Light"))
+        {
+            ImGui::PushItemWidth(210.0f);
+
+            XMFLOAT3 dir = m_dirLight.GetRotation();
+            if (ImGui::DragFloat3("Rotation", &dir.x, 0.1f))
+                m_dirLight.SetRotation(dir);
+
+            float vw = m_dirLight.GetShadowWidth();
+            if (ImGui::DragFloat("View width", &vw, 0.1f, 1.0f, 1000.0f))
+                m_dirLight.SetShadowWidth(vw);
+
+            float vh = m_dirLight.GetShadowHeight();
+            if (ImGui::DragFloat("View height", &vh, 0.1f, 1.0f, 1000.0f))
+                m_dirLight.SetShadowHeight(vh);
+
+            float nz = m_dirLight.GetShadowNearZ();
+            if (ImGui::DragFloat("Near Z", &nz, 0.1f, 0.1f, 10000.0f))
+                m_dirLight.SetShadowNearZ(nz);
+
+            float fz = m_dirLight.GetShadowFarZ();
+            if (ImGui::DragFloat("Near Z", &fz, 0.1f, 0.1f, 10000.0f))
+                m_dirLight.SetShadowFarZ(fz);
+
+            ImGui::Checkbox("Draw frustum", &m_drawDirLightFrustum);
+
+            ImGui::PopItemWidth();
+            ImGui::End();
+        }
+
 
         m_cube.ShowImGuiControl("Cube");
         m_plane.ShowImGuiControl("Plane");
@@ -175,7 +195,7 @@ namespace VSM
             if (ImGui::DragInt2("Size", (int*)&m_basicSMapSize.x, 0.1f, 0))
                 ResizeBasicSMap(m_basicSMapSize.x, m_basicSMapSize.y);
 
-            static const char* pcfItems[] = { "No PCF", "3x3", "5x5", "7x7", "9x9" };
+            static const char* pcfItems[] = { "Hardware PCF only", "3x3", "5x5", "7x7", "9x9" };
             ImGui::Combo("PCF", &m_basicSMapPCF, pcfItems, 5);
 
             ImGui::PopItemWidth();
@@ -450,50 +470,67 @@ namespace VSM
         dsv->Clear(D3D11_CLEAR_DEPTH, 1.0f, 0xff);
         rtv->Bind(dsv.get());
 
-        auto vs = m_resLib.Get<VertexShader>(VS_PHONG);
-        auto ps = m_resLib.Get<PixelShader>(PS_PHONG);
-
-        m_resLib.Get<SamplerState>(m_vsmSampler)->PSBind(ps->GetResBinding("vsmSampler"));
-        m_resLib.Get<SamplerState>(SS_CMP_LESS_EQUAL_LINEAR_CLAMP)->PSBind(ps->GetResBinding("smapSampler"));
-
-        if (m_useVSM)
-            m_resLib.Get<ShaderResourceView>(SRV_VSM)->PSBind(ps->GetResBinding("vsm"));
-        else
-            m_resLib.Get<ShaderResourceView>(SRV_BASIC_SMAP)->PSBind(ps->GetResBinding("smap"));
-
         XMFLOAT4X4 viewProj;
         XMStoreFloat4x4(&viewProj, XMMatrixTranspose(m_camera.GetViewMatrix() * m_camera.GetProjectionMatrix()));
-        {
-            PhongCBuf::VSSystem data = {};
-            data.viewProjection = viewProj;
-            data.viewPos = m_camera.GetDesc().position;
-            auto cbuf = m_resLib.Get<Buffer>(CB_VS_PHONG_SYSTEM);
-            cbuf->SetData(&data);
-            cbuf->VSBindAsCBuf(vs->GetResBinding("SystemCBuf"));
-        }
 
         {
-            XMFLOAT4X4 lightSpace;
-            XMStoreFloat4x4(&lightSpace, XMMatrixTranspose(m_dirLight.GetLightSpace()));
+            auto vs = m_resLib.Get<VertexShader>(VS_PHONG);
+            auto ps = m_resLib.Get<PixelShader>(PS_PHONG);
 
-            PhongCBuf::PSSystem data = {};
-            data.dirLight.color = m_dirLight.color;
-            data.dirLight.intensity = m_dirLight.intensity;
-            data.dirLight.ambientIntensity = m_dirLight.ambientIntensity;
-            data.dirLight.lightSpace = lightSpace;
-            data.vsmControl.enabled = m_useVSM;
-            data.vsmControl.minVariance = m_vsmMinVariance;
-            data.vsmControl.lightBleedReduction = m_vsmLightBleedReduction;
-            data.basicSMapControl.pcfLevel = (uint32_t)m_basicSMapPCF;
-            XMStoreFloat3(&data.dirLight.direction, m_dirLight.GetDirection());
-            auto cbuf = m_resLib.Get<Buffer>(CB_PS_PHONG_SYSTEM);
-            cbuf->SetData(&data);
-            cbuf->PSBindAsCBuf(ps->GetResBinding("SystemCBuf"));
+            m_resLib.Get<SamplerState>(m_vsmSampler)->PSBind(ps->GetResBinding("vsmSampler"));
+            m_resLib.Get<SamplerState>(SS_CMP_LESS_EQUAL_LINEAR_CLAMP)->PSBind(ps->GetResBinding("smapSampler"));
+
+            if (m_useVSM)
+                m_resLib.Get<ShaderResourceView>(SRV_VSM)->PSBind(ps->GetResBinding("vsm"));
+            else
+                m_resLib.Get<ShaderResourceView>(SRV_BASIC_SMAP)->PSBind(ps->GetResBinding("smap"));
+
+            {
+                PhongCBuf::VSSystem data = {};
+                data.viewProjection = viewProj;
+                data.viewPos = m_camera.GetDesc().position;
+                auto cbuf = m_resLib.Get<Buffer>(CB_VS_PHONG_SYSTEM);
+                cbuf->SetData(&data);
+                cbuf->VSBindAsCBuf(vs->GetResBinding("SystemCBuf"));
+            }
+
+            {
+                XMFLOAT4X4 lightSpace;
+                XMStoreFloat4x4(&lightSpace, XMMatrixTranspose(m_dirLight.GetLightSpace()));
+
+                PhongCBuf::PSSystem data = {};
+                data.dirLight.color = m_dirLight.GetColor();
+                data.dirLight.intensity = m_dirLight.GetIntensity();
+                data.dirLight.ambientIntensity = m_dirLight.GetAmbientIntensity();
+                data.dirLight.lightSpace = lightSpace;
+                data.vsmControl.enabled = m_useVSM;
+                data.vsmControl.minVariance = m_vsmMinVariance;
+                data.vsmControl.lightBleedReduction = m_vsmLightBleedReduction;
+                data.basicSMapControl.pcfLevel = (uint32_t)m_basicSMapPCF;
+                XMStoreFloat3(&data.dirLight.direction, m_dirLight.GetDirection());
+                auto cbuf = m_resLib.Get<Buffer>(CB_PS_PHONG_SYSTEM);
+                cbuf->SetData(&data);
+                cbuf->PSBindAsCBuf(ps->GetResBinding("SystemCBuf"));
+            }
+
+            m_cube.Render();
+            m_plane.Render();
+            m_model->Render();
         }
 
-        m_cube.Render();
-        m_plane.Render();
-        m_model->Render();
+
+        if (m_drawDirLightFrustum)
+        {
+            auto vs = m_resLib.Get<VertexShader>(VS_BASIC);
+
+            {
+                auto cbuf = m_resLib.Get<Buffer>(CB_VS_BASIC_SYSTEM);
+                cbuf->SetData(&viewProj);
+                cbuf->VSBindAsCBuf(vs->GetResBinding("SystemCBuf"));
+            }
+
+            m_dirLight.RenderOrthoFrustum(&m_resLib);
+        }
     }
 
     void App::GammaCorrectionPass()
@@ -682,6 +719,7 @@ namespace VSM
         m_resLib.Add(IL_PHONG, InputLayout::Create(m_context.get(), m_resLib.Get<VertexShader>(VS_PHONG)));
 
         m_resLib.Add(VS_BASIC, VertexShader::Create(m_context.get(), "res/cso/basic.vs.cso"));
+        m_resLib.Add(PS_BASIC, PixelShader::Create(m_context.get(), "res/cso/basic.ps.cso"));
         m_resLib.Add(PS_VSM, PixelShader::Create(m_context.get(), "res/cso/vsm.ps.cso"));
         m_resLib.Add(IL_BASIC, InputLayout::Create(m_context.get(), m_resLib.Get<VertexShader>(VS_BASIC)));
 
@@ -928,6 +966,15 @@ namespace VSM
             desc.MiscFlags = 0;
             desc.StructureByteStride = 0;
             m_resLib.Add(CB_VS_BASIC_ENTITY, Buffer::Create(m_context.get(), desc, nullptr));
+
+            desc = {};
+            desc.ByteWidth = sizeof(XMFLOAT4);
+            desc.Usage = D3D11_USAGE_DYNAMIC;
+            desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+            desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+            desc.MiscFlags = 0;
+            desc.StructureByteStride = 0;
+            m_resLib.Add(CB_PS_BASIC_ENTITY, Buffer::Create(m_context.get(), desc, nullptr));
         }
 
         // blur cbuf

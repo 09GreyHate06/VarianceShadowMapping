@@ -34,6 +34,7 @@
 #define PS_GAMMA_CORRECTION "gamma_correction"
 #define IL_FS_OUT_TC_POS "fullscreen_out_tc_pos"
 #define VS_BASIC "basic"
+#define PS_BASIC "basic"
 #define PS_VSM   "vsm"
 #define IL_BASIC "basic"
 #define PS_BLUR   "blur"
@@ -46,6 +47,7 @@
 #define CB_PS_GAMMA_CORRECTION_SYSTEM "gamma_correction.ps.SystemCBuf"
 #define CB_VS_BASIC_SYSTEM "basic.vs.SystemCBuf"
 #define CB_VS_BASIC_ENTITY "basic.vs.EntityCBuf"
+#define CB_PS_BASIC_ENTITY "basic.ps.EntityCBuf"
 #define CB_PS_BLUR_KERNEL  "blur.ps.KernelCBuf"
 #define CB_PS_BLUR_CONTROL "blur.ps.ControlCBuf"
 

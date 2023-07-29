@@ -137,7 +137,7 @@ namespace VSM
         m_context->GetDeviceContext()->IASetPrimitiveTopology(topology);
         GDX11_CONTEXT_THROW_INFO_ONLY(m_context->GetDeviceContext()->DrawIndexed(m_ib->GetDesc().ByteWidth / sizeof(uint32_t), 0, 0));
 
-        m_resLib->Get<PixelShader>(NULL_SHADER)->Bind();
+        m_resLib->Get<VertexShader>(NULL_SHADER)->Bind();
     }
 
     void Mesh::ShowImGuiControl(const std::string& label)
