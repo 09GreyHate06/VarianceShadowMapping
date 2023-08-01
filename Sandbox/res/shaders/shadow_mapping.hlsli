@@ -1,4 +1,9 @@
 
+float LinearizeDepth(float z, float n, float f)
+{
+    return -f * n / (f * z - n * z - f);
+}
+
 float ShadowMappingPCF3x3(Texture2D<float> smap, SamplerComparisonState smapSampler, float4 pixelLightSpace)
 {
     float3 projCoord = pixelLightSpace.xyz / pixelLightSpace.w;
@@ -147,6 +152,8 @@ float VarianceShadowMapping(Texture2D<float2> smap, SamplerState smapSampler, fl
     
     if (projCoord.z > 1.0f)
         return 1.0f;
+    
+    //projCoord.z = LinearizeDepth(projCoord.z, 0.1f, 500.0f);
     
     projCoord.x = projCoord.x * 0.5f + 0.5f;
     projCoord.y = -projCoord.y * 0.5f + 0.5f;

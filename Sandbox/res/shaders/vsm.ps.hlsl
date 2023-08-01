@@ -1,3 +1,5 @@
+//#include "shadow_mapping.hlsli"
+
 
 float2 main(float4 position : SV_Position) : SV_Target
 {
@@ -9,6 +11,7 @@ float2 main(float4 position : SV_Position) : SV_Target
     //float moment2 = depth * depth + 0.25 * (dx * dx + dy * dy);
     //return float2(depth, moment2);
     
-    
-    return float2(position.z, position.z * position.z);
+    //float depth = LinearizeDepth(position.z, 0.1f, 500.0f);
+    float depth = position.z;
+    return float2(depth, depth * depth);
 }

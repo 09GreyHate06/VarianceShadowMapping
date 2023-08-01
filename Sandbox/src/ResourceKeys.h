@@ -15,7 +15,6 @@
 // variance shadow map
 #define RTV_VSM_MS   "vsm_ms"
 #define DSV_VSM_MS   "vsm_ms"
-#define SRV_VSM_MS   "vsm_ms"
 #define RTV_VSM_TEMP "vsm_temp"
 #define SRV_VSM_TEMP "vsm_temp"
 #define RTV_VSM		 "vsm"
